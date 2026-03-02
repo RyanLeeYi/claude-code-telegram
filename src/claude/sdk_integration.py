@@ -152,6 +152,7 @@ class ClaudeSDKManager:
         session_id: Optional[str] = None,
         continue_session: bool = False,
         stream_callback: Optional[Callable[[StreamUpdate], None]] = None,
+        model: Optional[str] = None,
     ) -> ClaudeResponse:
         """Execute Claude Code command via SDK."""
         start_time = asyncio.get_event_loop().time()
@@ -194,7 +195,9 @@ class ClaudeSDKManager:
                 sdk_disallowed_tools = self.config.claude_disallowed_tools
 
             # Build Claude Agent options
+            effective_model = model or self.config.claude_model
             options = ClaudeAgentOptions(
+                model=effective_model,
                 max_turns=self.config.claude_max_turns,
                 max_budget_usd=self.config.claude_max_cost_per_request,
                 cwd=str(working_directory),

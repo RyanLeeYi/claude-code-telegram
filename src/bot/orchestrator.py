@@ -305,6 +305,9 @@ class MessageOrchestrator:
             ("new", self.agentic_new),
             ("status", self.agentic_status),
             ("verbose", self.agentic_verbose),
+            ("opus", self._make_model_handler("opus")),
+            ("sonnet", self._make_model_handler("sonnet")),
+            ("haiku", self._make_model_handler("haiku")),
             ("repo", self.agentic_repo),
         ]
         if self.settings.enable_project_threads:
@@ -343,6 +346,7 @@ class MessageOrchestrator:
                 pattern=r"^cd:",
             )
         )
+
 
         logger.info("Agentic handlers registered")
 
@@ -402,6 +406,9 @@ class MessageOrchestrator:
                 BotCommand("new", "Start a fresh session"),
                 BotCommand("status", "Show session status"),
                 BotCommand("verbose", "Set output verbosity (0/1/2)"),
+                BotCommand("opus", "Switch to Opus (deepest reasoning)"),
+                BotCommand("sonnet", "Switch to Sonnet (best coding)"),
+                BotCommand("haiku", "Switch to Haiku (fastest & cheapest)"),
                 BotCommand("repo", "List repos / switch workspace"),
             ]
             if self.settings.enable_project_threads:
@@ -562,6 +569,29 @@ class MessageOrchestrator:
             f"Verbosity set to <b>{level}</b> ({labels[level]})",
             parse_mode="HTML",
         )
+
+    def _get_model(self, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """Return effective model: per-user override or global default."""
+        user_model = context.user_data.get("selected_model")
+        if user_model:
+            return str(user_model)
+        return self.settings.claude_model
+
+    def _make_model_handler(
+        self, model_name: str
+    ) -> Callable[..., Any]:
+        """Create a handler that switches to the given model."""
+
+        async def handler(
+            update: Update, context: ContextTypes.DEFAULT_TYPE
+        ) -> None:
+            context.user_data["selected_model"] = model_name
+            await update.message.reply_text(
+                f"Model set to <b>{model_name}</b>",
+                parse_mode="HTML",
+            )
+
+        return handler
 
     def _format_verbose_progress(
         self,
@@ -887,6 +917,7 @@ class MessageOrchestrator:
                 session_id=session_id,
                 on_stream=on_stream,
                 force_new=force_new,
+                model=self._get_model(context),
             )
 
             # New session created successfully — clear the one-shot flag
@@ -1126,6 +1157,7 @@ class MessageOrchestrator:
                 session_id=session_id,
                 on_stream=on_stream,
                 force_new=force_new,
+                model=self._get_model(context),
             )
 
             if force_new:
@@ -1260,6 +1292,7 @@ class MessageOrchestrator:
                     session_id=session_id,
                     on_stream=on_stream,
                     force_new=force_new,
+                    model=self._get_model(context),
                 )
             finally:
                 heartbeat.cancel()
